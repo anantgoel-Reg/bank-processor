@@ -9,22 +9,30 @@ def parse_pdf_to_df(pdf_file):
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            table = page.extract_table()
+            # Force pdfplumber to use text alignment instead of drawn gridlines
+            table = page.extract_table({
+                "vertical_strategy": "text",
+                "horizontal_strategy": "text"
+            })
             if table:
                 all_rows.extend(table)
                 
     if not all_rows:
         return None
         
-    # Assume the first row contains headers
     # Find the index of the header row (starts with 'Date')
-    header_idx = 0
+    header_idx = -1
     for i, row in enumerate(all_rows):
-        if row and row[0] and 'Date' in row[0]:
+        # Check if row is not None, has elements, and the first element contains 'Date'
+        if row and row[0] and 'Date' in str(row[0]):
             header_idx = i
             break
             
-    headers = [str(h).replace('\n', ' ').strip() for h in all_rows[header_idx]]
+    if header_idx == -1:
+        return None # Could not find the header row
+            
+    # Clean up headers to remove newlines
+    headers = [str(h).replace('\n', ' ').strip() if h else f"Column_{i}" for i, h in enumerate(all_rows[header_idx])]
     data = all_rows[header_idx+1:]
     
     df = pd.DataFrame(data, columns=headers)
